@@ -1,0 +1,5 @@
+Trial 100 in reinstatement did not inititate (trigger)camera (or it could have been a different tiral. I am not sure). 
+
+It would be helpful to check the regularity of the time stamps (dat created) of the different blocks of image data to determine of there is a missing block in the middle).
+
+Added 5 extra trials to compensate. 

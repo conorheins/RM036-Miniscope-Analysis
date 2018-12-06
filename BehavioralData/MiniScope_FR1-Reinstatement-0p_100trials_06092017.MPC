@@ -1,0 +1,709 @@
+\ Food self-administration (training session) with Miniature microscope - Multi-trial FR for use with rats, 01-18-2017
+
+\Session Details:
+\----------------
+\Session consists of used defined number of trials spaced by a user defined ITI
+\All session sub-event timing is defined in state set 1 as array B()
+\All camera frame grab times are also stored based on absolute session times
+
+
+
+\Trial timeline
+\--------------
+\0 - Wait time of B(1) pre session
+\1 - ITI - B(8)
+\2 - Camera trigger sent via TTL (recording starts) at the end of ITI
+\3 - Left houselight ON (trial start cue for rat) - B(2) sec after camera
+\4 - Lever comes out - B(3) sec after house light
+\  --- Reward condition is checked for B(4) sec
+\        --- If FR is met, lever retracts after B(19) sec
+\               --- When FR is met, reward paired cue turns on for B(18) sec
+\        --- If FR is not met, lever retracts at B(4) sec after lever presentation
+\6 - Food is delivered B(5) sec after FR press
+\7 - Left houselight OFF (trial end) - B(6) sec after start of trial
+\8 - Camera turns OFF - B(7) sec after house light
+\  ----- Check for number of trials
+\9 - If trial#> MAX  -- data is saved, Session END -- else ITI
+
+
+
+
+\ Constants Used in this Program
+\--------------------------------
+\ Compare the configurations below with the wiring chart supplied
+\ with all system orders.  Edit Input and Output #'s if different
+\ from your layout.
+
+
+
+\ Inputs
+\--------
+
+^FoodLeverPress = 1
+^MethLeverPress = 2
+^InactiveLeverPress = 3
+^FoodPort = 4
+
+^InputTTL = 8
+
+
+\ Outputs
+\---------
+
+^FoodLever  = 1
+^MethLever = 2
+^Pump = 3
+^FoodCueLight = 4
+^Speaker = 5
+^HouseLight_Right = 6
+^HouseLight_Left = 7
+^PelletDispenser = 8
+
+^OutputTTL = 16 \Turn ON for desired number of milliseconds to generate pulse
+
+
+
+\ List of Data Variables and Array Size Definition
+\-------------------------------------------------
+
+
+
+DIM B = 30   \  B () = Session Parameters
+\            0 - Countdown timer for substates
+\            1 - Wait time before start of session / camera ON (seconds)
+\            2 - Wait time before House light ON (seconds)
+\            3 - Wait time between HL ON and Lever presentation (seconds)
+\            4 - Max lever presentation time (seconds)
+\            5 - Wait time between FR and food presentation (seconds)
+\            6 - Wait time between food delivery and House light OFF in unsuccessful trials (seconds)
+\            7 - Wait time before camera OFF (seconds)  -> trial stops (OFF TTL)
+\            8 - Inter trial interval (seconds) (LED cooling time)
+\            9 - Number of trials per session (>1)
+\           10 - FR requirement (>1)
+\           11 - Number of pellets per trial (>=0) - set to 0 for extinction session
+\           12 - TTL to camera module to trigger recording (seconds)
+\           13 - Temporal resolution for timers
+\           14 - Convert to seconds
+\           15 - Flag for reinstatement session [Set >=1 if TRUE]
+\           16 - Set to W(J) in every trial  --->  Number of pellets delivered in a trial during a reinstatement session
+\           17 - Wait time between House light ON and pellet presentation in reinstatement session
+\           18 - Wait time between FR and cue off (seconds)
+\           19 - Wait time between FR and lever OUT (seconds)
+\           20 - Cap
+
+
+
+
+
+DIM C = 9999  \  C() = Counters within each trial
+\            0 - Trial #
+\            1 - Rewarded trials   (Total)
+\            2 - Total active lever presses     (Total)
+\            3 - Total inactive lever presses during trials  (Total)
+\            4 - Latency to first press(Average)
+\            5 - Trial #
+\            6 - Total number of pellets delivered  // priming pellets in reinstatement session
+\            7 - Trials with at least one lever press (Total)
+\            8 - Total inactive lever presses in ITI     (Total)
+\            9 - Latency to complete FR (Average)
+\           10 - Trial #
+\           11 - Total nose entries during trial   (Total)
+\           12 - Total nose entries during ITI    (Total)
+\           13 - Total camera frame TTLs during trial (Total)
+\           14 - ITI
+\
+\ Array elements 0-9 store the total / average for the whole session as indicated in brackets.
+\ Array elements 10 to end save the same parameters lister above on a trial by trial basis.
+
+
+
+
+
+DIM D = 9999 \  D () = Time stamps collected for each trial
+\            0 - Trial#  (Header)
+\            1 - Trial start
+\            2 - Trial stop
+\            3 - Lever Out
+\            4 - Lever In
+\            5 - Trial#  (Header)
+\            6 - First pellet -- also first pellet prime in reinstatement session
+\            7 - Last pellet -- also first pellet prime in reinstatement session
+\            8 - Cue ON
+\            9 - Cue OFF
+\           10 - Trial#  (Header)
+\           11 - Houselight ON
+\           12 - Houselight OFF
+\           13 - TTL pulse OUT start
+\           14 - TTL pulse OUT stop
+
+
+
+
+\  R() = Collect times when reward criterion is met within each trial in a session
+DIM R = 9999
+
+\ P() = Collect times when pellets are delivered in a session
+DIM P = 9999
+
+\  L() = Collect times for all active lever presses
+DIM L = 9999
+
+\  H() = Collect times for all inactive lever presses during ITI phase
+DIM H = 9999
+
+\  I() = Collect times for all inactive lever presses during trial phase
+DIM I = 9999
+
+\  F() = Collect times for all food port beam breaks during food phase
+DIM F = 9999
+
+\  G() = Collect times for all food port beam breaks during trial phase
+DIM G = 9999
+
+\  X() = Array to collect output TTL pulse start, stop times.
+DIM X = 999
+
+\  Y() = Array to collect input TTL pulse times during trial phase.
+DIM Y = 99999
+
+\  K() = Array to collect input TTL pulse times during ITI phase.
+DIM K = 99999
+
+\  V() = Array to collect priming pellet delivery times
+DIM V = 9999
+
+
+
+DIM Z = 15  \  Z() = Store current array index for all data storage arrays
+\           1 - array R(), reward criterion reached
+\           2 - array L(), active lever presses
+\           3 - array I(), inactive lever presses during trial
+\           4 - array H(), inactive lever presses during ITI
+\           5 -
+\           6 - array P(), pellet delivery times
+\           7 - array X(), TTL pulses sent to camera
+\           8 - array Y(), TTL pulses received from camera during trial
+\           9 - array K(), TTL pulses received from camera during ITI
+\          10 -
+\          11 - array F(), food port entries during trial
+\          12 - array G(), all food port during ITI
+\          13 -
+\          14 - array V(), all priming pellets
+\
+
+
+\  NOTE: The maximum total space available for all
+\  arrays is a single procedure is 1,000,000.  The code
+\  value -987.987 is used to seal or terminate the array at
+\  the last valid element.
+
+
+\ List of Working Variables
+\--------------------------
+
+\  J = Current trial number
+\  T = Maintain time after session starts, 0.01 Second Interval  (specified in variable B(13))
+
+\  W = Number of priming pellets delivered after HL ON in a reinstatement trial
+LIST W = 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
+\LIST M = 46,16,29,45,33,40,58,25,42,50,38,29,44,39,36,33,36,44,40,53,29,45,36,53,55,29,44,65,28,40  \MIN 10, MAX 70, MEAN 40, Gaussian distribution
+\LIST M = 22,12,16,22,18,20,26,15,21,23,19,16,21,20,19,15,19,21,20,24,11,22,19,24,25,21,23,28,16,20  \MIN 10, MAX 30, MEAN 20, Gaussian distribution
+\LIST M = 34,20,24,32,27,30,39,23,32,35,29,22,32,42,29,22,29,32,35,30,33,19,23,31,26,29,38,22,31,34,28,21,31,41,28,21,28,31,34,29,35,21,25,33,28,31,40,24,32,35,29,23,33,45,30,23,30,33,36,31 \MIN 20, MAX 45, MEAN 30, Gaussian distribution
+LIST M = 10,12,12,13,14,17,12,15,16,14,12,15,14,14,12,14,15,14,16,10,15,14,16,17,15,14,18,12,14,16,11,13,13,14,15,18,13,16,17,15,13,16,15,15,13,15,16,15,17,11,16,15,17,18,16,15,19,13,15,17,12,14,14,15,16,19,14,17,18,16,14,17,16,16,14,16,17,16,18,12,17,16,18,19,17,16,20,14,16,19,13,14,13,19,13,15,14,13,14  \ MIN 10, MAX 20, MEAN 15, 100 trials, Gaussian distribution
+
+
+
+\ Variable Aliases
+\-----------------
+
+
+
+
+
+\List of Z-pulses and their function
+\-----------------------------------
+
+\Z1 - start session
+\Z2 - trial start / HL ON
+\Z3 - lever in
+\Z4 - lever out
+\Z5 - first lever press
+\Z6 - reward earned (FR criterion satisfied)
+\Z7 - cue OFF
+\Z8 - trial stop / HL OFF
+\Z9 - start food delivery
+
+\Z29 - reinstatement trial - priming pellet(s) delivered
+
+\Z30 - end session
+
+\Z31 - TTL pulse - camera off
+\Z32 - TTL pulse - camera trigger on
+
+
+
+
+
+
+
+
+\List of values to display in status bar
+\---------------------------------------
+
+\ 1 Reward
+\ 2 Active lever presses
+\ 3 Inactive Lever presses
+\ 4 Countdown
+\ 5 Trial#
+\ 6 Beam breaks - Trial
+\ 7 Beam breaks - ITI
+\ 8 Image Frames
+\ 9 Current trial Latency
+\10 Session timer
+
+
+
+
+\*********************************************
+\          Set Session Parameters
+\*********************************************
+
+S.S.1,
+
+S1,
+    0.01": SET J = 0;      \ Within session array counter, resets to 0 every session
+
+    SET B(0)=0;            \ Countdown timer for substates
+    SET B(1)=10;           \ Wait time before start of session / camera ON (seconds)
+    SET B(2)=10;           \ Wait time before House light ON (seconds)
+    SET B(3)=15;           \ Wait time between HL ON and Lever presentation (seconds)
+    SET B(4)=20;           \ Max time of lever presentation (seconds)
+    SET B(19)=5;           \ Wait time between FR and lever retraction (seconds)
+    SET B(18)=20;          \ Wait time between FR and cue off (seconds)
+    SET B(5)=20;           \ Wait time between FR and food presentation (seconds)
+    SET B(6)=20;           \ Wait time between lever retraction and House light OFF in unsuccessful trials
+    SET B(7)=10;           \ Wait time before camera OFF (seconds)  -> trial stops (OFF TTL)
+    SET B(8)=15.01;        \ Inter trial interval (seconds) (LED cooling time)
+    SET B(9)=100;          \ Number of trials per session (>=1, default 30) ---- when this number is changed from 30, update ITI LIST M so that it is still a random gaussioan distribution
+    SET B(10)=1;           \ FR requirement (>=1)
+    SET B(11)=0;           \ Number of pellets per trial (>=0) - set to 0 for extinction session
+    SET B(12)=0.15";       \ TTL to camera module to trigger recording (seconds)
+    SET B(13)=0.01;        \ Temporal resolution for timers
+    SET B(14)=B(13)*1";    \ Convert to seconds
+    SET B(15)=1;           \ Flag for reinstatement session [Set >=1 if TRUE and update array W for pellet primes]
+\   B(16)= W(J) in every trial  --->  Number of pellets delivered in a trial during a reinstatement session
+    SET B(17)=5;          \ Wait time between House light ON and pellet presentation in reinstatement session
+    SET B(20)=-987.987  ---> S32
+
+S32,
+  1": ---> SX
+
+
+\*********************************************
+\              Pre-session Timer
+\*********************************************
+
+S.S.2,
+S1,
+  #START: SET B(0) = B(1) ---> S2
+
+S2, \ Countdown to session start
+  B(14)#T: SET B(0) = B(0)-B(13); SHOW 9, Time to session , B(0);
+       IF B(0) <= 0 [@True, @False]
+           @True: Z1 ---> S32
+           @False: ---> S2
+
+S32,
+  1': ---> SX
+
+\*********************************************
+\          Global Session Timer
+\ Increment time "T" with resolution 0.01 sec
+\*********************************************
+
+
+S.S.3,
+S1,  \Set timers and counters to zero
+  #Z1: ZEROARRAY C ---> S2
+
+
+S2,
+  B(14)#T: SET T = T + B(13) ---> SX
+  #Z30: ---> S32
+
+S32,
+  1': ---> SX
+
+
+
+\*********************************************
+\          Session/Trial Control Code
+\*********************************************
+
+S.S.4,
+
+S1, \ Start session clock
+    #Z1: SET C(0+(15*J)) = J; SET C(5+(15*J)) = J; SET C(10+(15*J))= J; SET C(0)= J; SET B(0) = B(0)+B(8)-B(13);SET C(14+(15*J)) = B(8)+B(13) ---> S13
+
+S2, \ Countdown to houselight ON
+   B(14)#T: SHOW 9, Houselight ON in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: SET C(0+(15*J)) = J; SET C(5+(15*J)) = J; SET C(10+(15*J)) = J; SET C(0)= J; ON ^HouseLight_Left; SET D((15*J)+11) = T;
+                  IF B(15)>=1 [@True, @False]
+                      @True: SET B(0)= B(0)+B(17); Z2 ---> S3
+                      @False: SET B(0)=B(0)+B(3); Z2 --->S4
+           @False: SHOW 9, Houselight on in: , B(0) ---> S2
+
+S3, \ Countdown to priming pellet  --> check for reinstatement session and deliver priming pellets
+   B(14)#T: SET B(0) = B(0)-B(13);
+       IF B(0) <= 0[@True, @False]
+           @True: SET B(16) = W(J-1); SET B(0)=B(0)+B(3)-B(17); Z29 ---> S4
+           @False: SHOW 9, Priming pellet in: , B(0) --->S3
+
+S4, \ Countdown to lever presentation
+   B(14)#T: SET B(0) = B(0)-B(13); SHOW 9, Lever in: , B(0);
+       IF B(0) <= 0 [@True, @False]
+           @True: ON ^FoodLever; SET D((15*J)+3) = T; SET B(0)= B(0)+B(4); Z3 ---> S5
+           @False: SHOW 9, Lever in: , B(0) ---> S4
+
+S5, \ Countdown to lever retraction / Wait for FR condition to be satisfied
+   B(14)#T: SHOW 9, No Lever in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: OFF ^FoodLever; SET D((15*J)+4) = T; SET B(0)= B(6); Z4 ---> S11
+           @False: SHOW 9, No Lever in: , B(0) ---> S5
+   #Z6:SET B(0)=B(19) ---> S6
+
+S6, \ Food lever OUT B(19) seconds after FR is met
+   B(14)#T: SHOW 9, No Lever in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: OFF ^FoodLever; SET D((15*J)+4) = T; SET B(0)= B(18)-B(19); Z4 ---> S7
+           @False: SHOW 9, No Lever in: , B(0) ---> S6
+
+S7, \ Rewarded trial - Countdown to cue OFF, then Food in S7 -> Cue plays for B(18) seconds after FR is met, Food delivered B(5)-B(18) seconds after Cue OFF
+   B(14)#T: SHOW 9, Cue OFF in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: OFF ^Speaker; SET D((15*J)+9) = T; SET B(0) = B(5)-B(18);
+               IF B(0)<=0 [@True, @False]
+                   @True: SET B(0)= B(0)+B(6)+ B(4)-B(5)-C(9+(15*J)); Z7; Z9 ---> S11
+                   @False: Z7 ---> S8
+           @False:SHOW 9, Cue OFF in , B(0) ---> S7
+
+S8, \ Countdown to Food  -> Food delivered B(5)-B(18) seconds after Cue OFF
+   B(14)#T: SHOW 9, Food in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= B(13) [@True, @False]
+           @True: SET B(0)= B(0)+B(6)+ B(4)-B(5)-C(9+(15*J)); Z9 ---> S11
+           @False: SHOW 9, Food in: , B(0) ---> S8
+
+\S9 ---> blank states for use in future modifications
+
+S10, \ No reward earned - Countdown  - no CS plays
+   B(14)#T: SHOW 9, No Reward , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: SET B(0)= B(6) ---> S11
+           @False:SHOW 9, No Reward , B(0) ---> S10
+
+S11, \ Countdown to Houselight OFF
+   B(14)#T: SHOW 9, Houselight OFF in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: OFF ^HouseLight_Left; SET D((15*J)+12) = T; SET B(0)= B(0)+B(7); Z8 ---> S12
+           @False: SHOW 9, Houselight OFF in: , B(0) ---> S11
+
+S12, \ Countdown to Camera OFF
+   B(14)#T: SHOW 9, Camera OFF in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: RANDD B(8) = M; SET C(14+(15*J)) = B(8); SET B(0)= B(0)+B(8); SET D((15*J)+2) = T; Z31 ---> S13
+           @False: SHOW 9, Camera OFF in: , B(0) ---> S12
+
+S13, \ Check for last trial
+   B(14)#T: IF C(0+(15*J)) = B(9) [@True, @False]
+               @True:   ADD J; SET B(0) = B(0)-B(13); SET C((15*J)+15)=-987.987; SET D((15*J)+15)=-987.987  ---> S15
+               @False:  ADD J; SET B(0) = B(0)-B(13); SET C((15*J)+15)=-987.987; SET D((15*J)+15)=-987.987  ---> S14
+
+S14, \ Countdown to next cycle  (ITI)
+   B(14)#T: SHOW 9, Camera ON in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: SET B(0)= B(0)+B(2); SET D(15*J) = J; SET D((15*J)+5) = J; SET D((15*J)+10) = J; SET D((15*J)+1) = T;
+                  ON^ OutputTTL; SET D((15*J)+13) = T; SET X(Z(7))= T; ADD Z(7); SET X(Z(7))= -987.987; Z32 ---> S2
+           @False: SHOW 9, Camera ON in: , B(0) ---> S14
+
+
+S15, \ Countdown to end of session
+   B(14)#T: SHOW 9, Session Ends in: , B(0); SET B(0) = B(0)-B(13);
+       IF B(0) <= 0 [@True, @False]
+           @True: IF C(1)>0 [@True, @False]
+                      @True: SET B(0)= 0; SET C(4) = C(4)/C(1); SET C(9) = C(9)/C(7); SHOW 4, Avg Latency , C(4);Z30 ---> STOPABORTFLUSH
+                      @False: IF C(7) > 0 [@True, @False]
+                                  @True: SET B(0)= 0; SET C(4) = 0; SET C(9) = C(9)/C(7); SHOW 4, Avg Latency , C(4); Z30 ---> STOPABORTFLUSH
+                                  @False: SET B(0)= 0; SET C(4) = 0; SET C(9) = 0; SHOW 4, Avg Latency , C(4); Z30 ---> STOPABORTFLUSH
+           @False: SHOW 9, Session Ends in: , B(0) ---> S15
+
+
+
+
+S32,
+    1': --->SX
+
+
+\**************************************************
+\  FR# Control Code / Reward counter / Time stamps
+\**************************************************
+
+
+S.S.5,
+
+S1,
+  #Z3:  SET R(Z(1))= -987.987---> S2
+  #Z30: ---> S32
+
+S2,
+  B(10)#R^FoodLever: SET C(1+(15*J)) = 1; ADD C(1);
+                     ON ^Speaker; SET D((15*J)+8) = T;
+                     SET R(Z(1))= T; ADD Z(1); SET R(Z(1))= -987.987; Z6 ---> S1
+  #Z4: ---> S1
+  #Z30: ---> S32
+
+S32,
+    1': ---> SX
+
+
+
+
+\*********************************************
+\ Response counter / display / save timestamps
+\*********************************************
+
+S.S.6,
+
+S1,
+  #Z3: SET L(Z(2))= -987.987 ---> S2
+  #Z30: ---> S32
+
+S2,
+  #R ^FoodLeverPress: ADD C(2+(15*J));ADD C(2); SET L(Z(2))= T; ADD Z(2);
+                 IF C(2+(15*J))>1 [@True, @False]
+                                     @True: SET L(Z(2))= -987.987 ---> SX
+                                     @False: SET L(Z(2))= -987.987; ADD C(7+(15*J));ADD C(7); Z5 ---> SX
+  #Z4: ---> S1
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+\**************************************************************
+\Pellet counter / display /  save timestamps - regular session
+\**************************************************************
+
+S.S.7,
+
+S1,
+  #Z3: SET P(Z(6))= -987.987 ---> SX
+  #Z6: ---> S2
+  #Z30: ---> S32
+
+S2, \ check if extinction session
+  #Z9: IF B(11)<=0 [@True, @False]
+              @True: --->S1
+              @False: ON ^PelletDispenser; ADD C((15*J)+6); ADD C(6); SET D((15*J)+6) = T;
+                         SET P(Z(6))= T; ADD Z(6); SET P(Z(6))= -987.987 ---> S3
+  #Z30: ---> S32
+
+S3,
+  0.05": OFF ^PelletDispenser ---> S4
+
+S4, \ check for more pellets
+  0.45": IF B(11)>C((15*J)+6) [@True, @False]
+                          @True: ON ^PelletDispenser; ADD C((15*J)+6); ADD C(6); SET D((15*J)+7) = T;
+                                  SET P(Z(6))= T; ADD Z(6); SET P(Z(6))= -987.987 ---> S3
+                          @False: ---> S1
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+\****************************************************
+\ Inactive Lever counter / display / save timestamps
+\****************************************************
+
+S.S.8,
+S1,
+  #Z1: SET H(Z(4))= -987.987; SET I(Z(3))= -987.987--->  S2
+  #Z30: ---> S32
+
+S2,
+  #Z2: ---> S3
+  #Z30: ---> S32
+  #R ^InactiveLeverPress: ADD C(8+(15*J)); ADD C(8); SET H(Z(4))= T;
+                 ADD Z(4); SET H(Z(4))= -987.987 ---> SX
+
+S3,
+  #R ^InactiveLeverPress: ADD C(3+(15*J));ADD C(3); SET I(Z(3))= T;
+                 ADD Z(3); SET I(Z(3))= -987.987 ---> SX
+  #Z8: ---> S2
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+
+\*****************************************************
+\ Response latency (to start and finish FR) / display
+\*****************************************************
+
+S.S.9,
+
+S1,
+  #Z2: CLEAR 4,4; SET C(4+(15*J))=B(4); --->S2
+  #Z30: ---> S32
+
+S2,
+  #Z3:IF B(10)<=1 [@True, @False]
+           @True: --->S3
+           @False: --->S4
+
+  #Z30: ---> S32
+
+S3,
+  B(14)#T: SET C(9+(15*J))=C(9+(15*J))+ B(13) ---> SX
+  #Z6: SET C(9)=C(9) + C(9+(15*J)); SET C(4+(15*J))=C(9+(15*J)); SET C(4)=C(9);SHOW 4, Latency , C(4+(15*J))---> S1
+  #Z4: SET C(9+(15*J)) = B(4);SHOW 4, Latency , C(4+(15*J)) ---> S1
+  #Z30: ---> S32
+
+S4,
+  B(14)#T: SET C(9+(15*J))=C(9+(15*J))+ B(13) ---> SX
+
+  #Z5: SET C(4+(15*J))=C(9+(15*J)); SET C(4)=C(4) + C(4+(15*J)); SHOW 4, Latency , C(4+(15*J))---> SX
+
+  #Z6: SET C(9)=C(9) + C(9+(15*J))---> S1
+  #Z4: SET C(9+(15*J)) = B(4); SHOW 4, Latency , C(4+(15*J)) ---> S1
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+\**********************************************************
+\ Food port beam-break counter / display / save timestamps
+\**********************************************************
+
+S.S.10,
+S1,
+  #Z1: SET G(Z(11))= -987.987; SET F(Z(12))= -987.987 ---> S2
+  #Z30: ---> S32
+
+S2,
+  #Z2: ---> S3
+  #Z30: ---> S32
+  #R ^FoodPort: ADD C(12+(15*J)); ADD C(12); SET G(Z(12))= T;        \ adds during
+                 ADD Z(12); SET G(Z(12))= -987.987 ---> SX           \    ITI
+
+S3,
+  #R ^FoodPort: ADD C(11+(15*J));ADD C(11); SET F(Z(11))= T;           \ adds during
+                 ADD Z(11); SET F(Z(11))= -987.987 ---> SX             \    trial
+  #Z8: ---> S2
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+\**************************************************************
+\Pellet counter / display /  save timestamps - reinstatement session
+\**************************************************************
+
+S.S.11,
+
+S1,
+  #Z2: SET V(Z(14))= -987.987 ---> S2
+  #Z30: ---> S32
+
+S2, \ check if extinction session
+  #Z29: IF B(16)<=0 [@True, @False]
+              @True: --->S1
+              @False: ON ^PelletDispenser; ADD C((15*J)+6); ADD C(6); SET D((15*J)+6) = T;
+                         SET V(Z(14))= T; ADD Z(14); SET V(Z(14))= -987.987 ---> S3
+  #Z30: ---> S32
+
+S3,
+  0.05": OFF ^PelletDispenser ---> S4
+
+S4, \ check for more pellets
+  0.45": IF B(16)>C((15*J)+6) [@True, @False]
+                          @True: ON ^PelletDispenser; ADD C((15*J)+6); ADD C(6); SET D((15*J)+7) = T;
+                                   SET V(Z(14))= T; ADD Z(14); SET V(Z(14))= -987.987  ---> S3
+                          @False: ---> S1
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+
+\**********************************************************
+\ Input TTL counter / display / save absolute timestamps
+\**********************************************************
+
+S.S.12,
+S1,
+  #Z1: SET Y(Z(8))= -987.987; SET K(Z(9))= -987.987 ---> S2
+  #Z30: ---> S32
+
+S2,
+  #Z2: ---> S3
+  #Z30: ---> S32
+  #R ^InputTTL: ADD C(14+(15*J)); ADD C(14); SET K(Z(9))= T;        \ adds during
+                 ADD Z(9); SET K(Z(9))= -987.987 ---> SX           \    ITI
+
+S3,
+  #R ^InputTTL: ADD C(13+(15*J));ADD C(13); SET Y(Z(8))= T;           \ adds during
+                 ADD Z(8); SET Y(Z(8))= -987.987 ---> SX             \    trial
+  #Z8: ---> S2
+  #Z30: ---> S32
+
+S32,
+    1': --->SX
+
+
+
+
+
+\*********************************************
+\             Camera Trigger OUT
+\*********************************************
+
+S.S.31,
+S1,
+  #Z32: ---> S2
+
+S2,
+  B(12)#T: OFF^ OutputTTL; SET X(Z(7))= T; ADD Z(7); SET X(Z(7))= -987.987; SET D((15*J)+14) = T --->S1
+  #Z30: ---> S32
+
+S32,
+  1': --->SX
+
+
+
+\*********************************************
+\               UPDATE DISPLAY
+\*********************************************
+S.S.32,
+S1,
+   #Z1: SHOW 1, Rewards , C(1), 2, Active Presses , C(2), 7, Inactive Presses , C(3)+C(8), 5, Trial# , C(0), 3, Beam breaks - Trial , C(11) , 8, Beam breaks - ITI , C(12) , 6, Image Frames, C(13), 10, Session timer, T/60 ---> S2
+   #Z30: ---> S32
+S2,
+   1": SHOW 1, Rewards , C(1), 2, Active Presses , C(2), 7, Inactive Presses , C(3)+C(8), 5, Trial# , C(0), 3, Beam breaks - Trial , C(11) , 8, Beam breaks - ITI , C(12) , 6, Image Frames, C(13), 10, Session timer, T/60 ---> S2
+   #Z30: ---> S32
+
+S32,
+  1': --->SX
