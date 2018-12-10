@@ -203,6 +203,7 @@ session_names = {'SA1','SA2','Ext1','Ext2','Ext3','Ext4','Reinstatement'}; % all
 
 % left off with 'Ext2' -- start from 'Ext2' next time. 12.02.2018 21:17 
 % left off with 'Ext4' -- start from 'Ext4', ii = 3 (Rat10) next time. 12.03.2018 13:01
+% Finito
 initial_sess = 'Reinstatement';
 
 %%
