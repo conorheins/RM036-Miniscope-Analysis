@@ -372,8 +372,8 @@ for ii = 1:length(RatIDs)
     
         %% now plot it all
         
-%         y_lims = [0 0.18]; % use these limits for 'HLON' and 'leverOUT'
-        y_lims = [0 0.18]; % use these limits for 'leverIN'
+        y_lims = [0 0.1]; % use these limits for 'HLON' and 'leverOUT'
+%         y_lims = [0 0.11]; % use these limits for 'leverIN'
         
         figure(event_i)
         set(gcf,'Position',[100 300 1200 700])
