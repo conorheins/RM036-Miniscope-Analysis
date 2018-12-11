@@ -124,6 +124,10 @@ for ii = 1:length(RatIDs)
     accum_data_ExtPh1_s = cell(length(events_of_interest),1);
     accum_data_ExtPh1_us = cell(length(events_of_interest),1);
     
+    for event_i = 1:length(events_of_interest)
+        accum_data_ExtPh1_s{event_i} = cell(1,2);
+        accum_data_ExtPh1_us{event_i} = cell(1,2);
+    end
     %% loop through both sessions of ExtPhase1, accumulating adjacent sessions into a single session
     for kk = 1:length(extph1_idx)
         
@@ -176,11 +180,9 @@ for ii = 1:length(RatIDs)
                     event_i_data_NRus(:,:,jj) = reshaped_neur_us(:,win_edges(1):win_edges(2),NR_trials_id(jj));
                 end
                 
-                accum_data_ExtPh1_s{event_i} = cell(1,2);
                 accum_data_ExtPh1_s{event_i}{1} = cat(3,accum_data_ExtPh1_s{event_i}{1},event_i_data_Rs);
                 accum_data_ExtPh1_s{event_i}{2} = cat(3,accum_data_ExtPh1_s{event_i}{2},event_i_data_NRs);
                 
-                accum_data_ExtPh1_us{event_i} = cell(1,2);
                 accum_data_ExtPh1_us{event_i}{1} = cat(3,accum_data_ExtPh1_us{event_i}{1},event_i_data_Rus);
                 accum_data_ExtPh1_us{event_i}{2} = cat(3,accum_data_ExtPh1_us{event_i}{2},event_i_data_NRus);
             end
@@ -207,6 +209,11 @@ for ii = 1:length(RatIDs)
     
     accum_data_ExtPh2_s = cell(length(events_of_interest),1);
     accum_data_ExtPh2_us = cell(length(events_of_interest),1);
+    
+    for event_i = 1:length(events_of_interest)
+        accum_data_ExtPh2_s{event_i} = cell(1,2);
+        accum_data_ExtPh2_us{event_i} = cell(1,2);
+    end
     
     %% loop through both sessions of ExtPhase2, accumulating adjacent sessions into a single session
    
@@ -261,11 +268,9 @@ for ii = 1:length(RatIDs)
                     event_i_data_NRus(:,:,jj) = reshaped_neur_us(:,win_edges(1):win_edges(2),NR_trials_id(jj));
                 end
                 
-                accum_data_ExtPh2_s{event_i} = cell(1,2);
                 accum_data_ExtPh2_s{event_i}{1} = cat(3,accum_data_ExtPh2_s{event_i}{1},event_i_data_Rs);
                 accum_data_ExtPh2_s{event_i}{2} = cat(3,accum_data_ExtPh2_s{event_i}{2},event_i_data_NRs);
                 
-                accum_data_ExtPh2_us{event_i} = cell(1,2);
                 accum_data_ExtPh2_us{event_i}{1} = cat(3,accum_data_ExtPh2_us{event_i}{1},event_i_data_Rus);
                 accum_data_ExtPh2_us{event_i}{2} = cat(3,accum_data_ExtPh2_us{event_i}{2},event_i_data_NRus);
             end
@@ -292,38 +297,41 @@ for ii = 1:length(RatIDs)
         temp = accum_data_SA{event_i};
         means_SA = mean(mean(temp,3),1);
         errors_SA = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend1 = sprintf('%d total neurons',size(temp,1));
+        title1 = sprintf('%d Response Trials',size(temp,3));
+        legend1 = {temp_legend1};
         
         % now move onto Extinction Phase 1
         
         temp = accum_data_ExtPh1_s{event_i}{1};
         means_ExtP1_Rs = mean(mean(temp,3),1);
         errors_ExtP1_Rs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend1 = sprintf('%d shared neurons',size(temp,1));
         
         temp = accum_data_ExtPh1_us{event_i}{1};
         means_ExtP1_Rus = mean(mean(temp,3),1);
         errors_ExtP1_Rus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend2 = sprintf('%d unshared neurons',size(temp,1));
+        
+        title2 = sprintf('%d Response Trials',size(temp,3));
+        legend2 = {temp_legend1,temp_legend2};
         
         % now move onto Extinction Phase 2
         
         temp = accum_data_ExtPh2_s{event_i}{1};
         means_ExtP2_Rs = mean(mean(temp,3),1);
         errors_ExtP2_Rs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend1 = sprintf('%d shared neurons',size(temp,1));
         
         temp = accum_data_ExtPh2_us{event_i}{1};
         means_ExtP2_Rus = mean(mean(temp,3),1);
         errors_ExtP2_Rus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend2 = sprintf('%d unshared neurons',size(temp,1));
         
-        
-        figure(1);
-        
-        subplot(311)
-        mseb(t_axis,means_SA,errors_SA)
-        subplot(312)
-        mseb(t_axis,[means_ExtP1_Rs;means_ExtP1_Rus],[errors_ExtP1_Rs;errors_ExtP1_Rus])
-        subplot(313)
-        mseb(t_axis,[means_ExtP2_Rs;means_ExtP2_Rus],[errors_ExtP2_Rs;errors_ExtP2_Rus])
-        
-        
+        title3 = sprintf('%d Response Trials',size(temp,3));
+        legend3 = {temp_legend1,temp_legend2};
+
+
         %% NON RESPONSE TRIALS
                 
         % start with self-admin trials
@@ -332,35 +340,93 @@ for ii = 1:length(RatIDs)
 %         means_SA = mean(mean(temp,3),1);
 %         errors_SA = std(mean(temp,3),0,1)./sqrt(size(temp,1));
         
+        title4 = 'Non-Response Trials Not Shown';
         % now move onto Extinction Phase 1
         
         temp = accum_data_ExtPh1_s{event_i}{2};
         means_ExtP1_NRs = mean(mean(temp,3),1);
         errors_ExtP1_NRs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend1 = sprintf('%d shared neurons',size(temp,1));
         
         temp = accum_data_ExtPh1_us{event_i}{2};
         means_ExtP1_NRus = mean(mean(temp,3),1);
         errors_ExtP1_NRus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
-        
+        temp_legend2 = sprintf('%d unshared neurons',size(temp,1));
+        title5 = sprintf('%d Non-response Trials',size(temp,3));
+        legend5 = {temp_legend1,temp_legend2};
+
         % now move onto Extinction Phase 2
         
         temp = accum_data_ExtPh2_s{event_i}{2};
         means_ExtP2_NRs = mean(mean(temp,3),1);
         errors_ExtP2_NRs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend1 = sprintf('%d shared neurons',size(temp,1));
         
         temp = accum_data_ExtPh2_us{event_i}{2};
         means_ExtP2_NRus = mean(mean(temp,3),1);
         errors_ExtP2_NRus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        temp_legend2 = sprintf('%d unshared neurons',size(temp,1));
+        title6 = sprintf('%d Non-response Trials',size(temp,3));
+        legend6 = {temp_legend1,temp_legend2};
         
-        figure(2);
-        subplot(311)
-        subplot(312)
+    
+        %% now plot it all
+        
+%         y_lims = [0 0.18]; % use these limits for 'HLON' and 'leverOUT'
+        y_lims = [0 0.18]; % use these limits for 'leverIN'
+        
+        figure(event_i)
+        set(gcf,'Position',[100 300 1200 700])
+        
+        subplot(321)
+        lineProp.col = {[0 0 1]};
+        mseb(t_axis,means_SA,errors_SA,lineProp);
+        legend(legend1,'Location','northwest');
+        ylim(y_lims);
+        set(gca,'FontSize',16)
+        title(title1);
+
+        subplot(323)
+        mseb(t_axis,[means_ExtP1_Rs;means_ExtP1_Rus],[errors_ExtP1_Rs;errors_ExtP1_Rus])
+        legend(legend2,'Location','northwest');
+        ylim(y_lims); 
+        set(gca,'FontSize',16)
+        title(title2)
+        
+        subplot(325)
+        mseb(t_axis,[means_ExtP2_Rs;means_ExtP2_Rus],[errors_ExtP2_Rs;errors_ExtP2_Rus])
+        legend(legend3,'Location','northwest');
+        ylim(y_lims);
+        xlabel(sprintf('Time relative to %s (sec)',events_of_interest{event_i}));
+        set(gca,'FontSize',16)
+        title(title3)
+
+        
+        subplot(322)
+        lineProp.col = {[1 0 0]};
+        mseb(t_axis,zeros(1,length(t_axis)),zeros(1,length(t_axis)),lineProp)
+        ylim(y_lims);
+        set(gca,'FontSize',16)
+        title(title4)
+        
+        subplot(324)
         mseb(t_axis,[means_ExtP1_NRs;means_ExtP1_NRus],[errors_ExtP1_NRs;errors_ExtP1_NRus])
-        subplot(313)
-        mseb(t_axis,[means_ExtP2_NRs;means_ExtP2_NRus],[errors_ExtP2_NRs;errors_ExtP2_NRus])
+        legend(legend5,'Location','northwest');
+        ylim(y_lims);
+        set(gca,'FontSize',16)
+        title(title5)
         
-                
-     
+        subplot(326)
+        mseb(t_axis,[means_ExtP2_NRs;means_ExtP2_NRus],[errors_ExtP2_NRs;errors_ExtP2_NRus])
+        legend(legend6,'Location','northwest');
+        ylim(y_lims);
+        xlabel(sprintf('Time relative to %s (sec)',events_of_interest{event_i}));
+        set(gca,'FontSize',16)
+        title(title6)
+        
+        saveas(gcf,fullfile('/Users/conorheins/Desktop/CALCIUM_IMAGING/RM036/RM036_Displays/analysis_12112018/',...
+            sprintf('Rat%d/3Phase_Averages_LockedTo_%s',rat_id,events_of_interest{event_i})),'png');
+
     end
     
 end
