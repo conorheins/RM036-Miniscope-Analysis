@@ -276,48 +276,91 @@ for ii = 1:length(RatIDs)
   
     %% now plot all that shit
     
+    % N.B. use this line to get boostrapped intervals (equivalent to density of +/- 1 SEM):
+    % errors_SA = bootci(1000,{@mean,mean(temp,3)},'type','per','alpha',0.32);
+
+    
     for event_i = 1:length(events_of_interest)
+        
+        t_axis = -5:1/Fs:5;
+
+        
+        %% RESPONSE TRIALS
         
         % start with self-admin trials
         
         temp = accum_data_SA{event_i};
         means_SA = mean(mean(temp,3),1);
-%         errors_SA = bootci(1000,{@mean,mean(temp,3)},'type','per','alpha',0.32);
         errors_SA = std(mean(temp,3),0,1)./sqrt(size(temp,1));
         
         % now move onto Extinction Phase 1
         
         temp = accum_data_ExtPh1_s{event_i}{1};
-        means_ExtP1_s = mean(mean(temp,3),1);
-%         errors_ExtP1_s = bootci(1000,{@mean,mean(temp,3)},'type','per','alpha',0.32);
-        errors_ExtP1_s = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        means_ExtP1_Rs = mean(mean(temp,3),1);
+        errors_ExtP1_Rs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        temp = accum_data_ExtPh1_us{event_i}{1};
+        means_ExtP1_Rus = mean(mean(temp,3),1);
+        errors_ExtP1_Rus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
         
         % now move onto Extinction Phase 2
         
         temp = accum_data_ExtPh2_s{event_i}{1};
-        means_ExtP2_s = mean(mean(temp,3),1);
-%         errors_ExtP2_s = bootci(1000,{@mean,mean(temp,3)},'type','per','alpha',0.32);
-        errors_ExtP2_s = std(mean(temp,3),0,1)./sqrt(size(temp,1));
-
-        t_axis = -5:1/Fs:5;
+        means_ExtP2_Rs = mean(mean(temp,3),1);
+        errors_ExtP2_Rs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
         
-        lineProp.col = mat2cell(cool(3),ones(3,1),3);
+        temp = accum_data_ExtPh2_us{event_i}{1};
+        means_ExtP2_Rus = mean(mean(temp,3),1);
+        errors_ExtP2_Rus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
         
-        shifts = [0.15;0.125;0.04];
         
-        mseb(t_axis,shifts + [means_SA;means_ExtP1_s;means_ExtP2_s],[errors_SA;errors_ExtP1_s;errors_ExtP2_s],lineProp);
+        figure(1);
         
-%         plot(t_axis, 0.15 + means_SA,'b');
-%         hold on; plot(t_axis,0.15 + errors_SA(1,:),'b--','LineWidth',0.5); plot(t_axis,0.15 + errors_SA(2,:),'b--','LineWidth',0.5);
-%         
-%         hold on;
-%         plot(t_axis, 0.12 + means_ExtP1_s,'r');
-%         hold on; plot(t_axis,0.12 + errors_ExtP1_s(1,:),'r--','LineWidth',0.5); plot(t_axis,0.12 + errors_ExtP1_s(2,:),'r--','LineWidth',0.5);
-% 
-%         hold on;
-%         plot(t_axis, 0.03 + means_ExtP2_s,'k');
-%         hold on; plot(t_axis,0.03 + errors_ExtP2_s(1,:),'k--','LineWidth',0.5); plot(t_axis,0.03 + errors_ExtP2_s(2,:),'k--','LineWidth',0.5);
-
+        subplot(311)
+        mseb(t_axis,means_SA,errors_SA)
+        subplot(312)
+        mseb(t_axis,[means_ExtP1_Rs;means_ExtP1_Rus],[errors_ExtP1_Rs;errors_ExtP1_Rus])
+        subplot(313)
+        mseb(t_axis,[means_ExtP2_Rs;means_ExtP2_Rus],[errors_ExtP2_Rs;errors_ExtP2_Rus])
+        
+        
+        %% NON RESPONSE TRIALS
+                
+        % start with self-admin trials
+        
+%         temp = accum_data_SA{event_i};
+%         means_SA = mean(mean(temp,3),1);
+%         errors_SA = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        % now move onto Extinction Phase 1
+        
+        temp = accum_data_ExtPh1_s{event_i}{2};
+        means_ExtP1_NRs = mean(mean(temp,3),1);
+        errors_ExtP1_NRs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        temp = accum_data_ExtPh1_us{event_i}{2};
+        means_ExtP1_NRus = mean(mean(temp,3),1);
+        errors_ExtP1_NRus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        % now move onto Extinction Phase 2
+        
+        temp = accum_data_ExtPh2_s{event_i}{2};
+        means_ExtP2_NRs = mean(mean(temp,3),1);
+        errors_ExtP2_NRs = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        temp = accum_data_ExtPh2_us{event_i}{2};
+        means_ExtP2_NRus = mean(mean(temp,3),1);
+        errors_ExtP2_NRus = std(mean(temp,3),0,1)./sqrt(size(temp,1));
+        
+        figure(2);
+        subplot(311)
+        subplot(312)
+        mseb(t_axis,[means_ExtP1_NRs;means_ExtP1_NRus],[errors_ExtP1_NRs;errors_ExtP1_NRus])
+        subplot(313)
+        mseb(t_axis,[means_ExtP2_NRs;means_ExtP2_NRus],[errors_ExtP2_NRs;errors_ExtP2_NRus])
+        
+                
+     
     end
     
 end
