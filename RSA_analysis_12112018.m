@@ -32,7 +32,7 @@ data_type = 'spikes_conv';
 
 sessions2track = {'SA1','SA2','Ext1','Ext2','Ext3','Ext4'};
 
-events_of_interest = {'HLON','leverOUT','leverIN','pellets'}; 
+events_of_interest = {'HLON','leverOUT','leverIN'}; 
 
 temporal_bins = {[-5,5],[-5,5],[-5,5],[-5,5]};
 Fs = 10.49; % sampling rate, in frames/second
@@ -116,16 +116,25 @@ for ii = 1:length(RatIDs)
             end
                 
         end
+        
+        clear Sess_object
     end
     
     %% look at decay of pattern similarity from self-administration average vector 
     
-    time_win = 1:105;
+    time_win = 45:70;
+    
+    num_trials_to_bin = 3;
     
     for event_i = 1:length(events_of_interest)
         
-        all_event_i_data = squeeze(prctile(accum_data{event_i}(:,time_win,:),90,2));
-        tf_idf_d = calcTFIDF(all_event_i_data);
+        %%
+        
+        close gcf;
+
+        all_event_i_data = squeeze(mean(accum_data{event_i}(:,time_win,:),2));
+            
+%         tf_idf_d = calcTFIDF(all_event_i_data);
         
         data2use = all_event_i_data;
         
@@ -136,26 +145,69 @@ for ii = 1:length(RatIDs)
         end      
         
         sa_filter_vector = ismember(all_trial_flags(:,1),sa_ids);
-        mean_vector_self_admin = mean(data2use(:,and(sa_filter_vector,all_trial_flags(:,2)==1)),2);
+        
+        % get activity averages across groups of num_trials_to_bin trials
+        sa_patterns_R = data2use(:,and(sa_filter_vector,all_trial_flags(:,2)==1));
+        
+        binned_patterns_Rsa = bin_patterns_overTime(sa_patterns_R,num_trials_to_bin);
+            
+%         mean_vector_self_admin = mean(data2use(:,and(sa_filter_vector,all_trial_flags(:,2)==1)),2);
         
         ext_ids = [];
         Ext_names = {'Ext1','Ext2','Ext3','Ext4'};
         for kk = 1:length(Ext_names)
             ext_ids = [ext_ids,find(strcmp(Ext_names{kk},session_names(sess_ids)))];
         end
-        
+
         ext_filter_vector = ismember(all_trial_flags(:,1),ext_ids);
-        ext_vectors_R = data2use(:,and(ext_filter_vector,all_trial_flags(:,2)==1));
-        ext_vectors_NR = data2use(:,and(ext_filter_vector,all_trial_flags(:,2)==0));
+        ext_patterns_R = data2use(:,and(ext_filter_vector,all_trial_flags(:,2)==1));
+        binned_patterns_Rext = bin_patterns_overTime(ext_patterns_R,num_trials_to_bin);
         
-        distances_R = 1-squareform(pdist([mean_vector_self_admin,ext_vectors_R]','spearman'));
-        distances_NR = 1-squareform(pdist([mean_vector_self_admin,ext_vectors_NR]','spearman'));
+        distances_R_binned = 1-squareform(pdist([binned_patterns_Rsa,binned_patterns_Rext]','spearman'));
         
-        plot(distances_R(1,2:104));
-        hold on; plot(distances_NR(1,2:104));
+        ext_patterns_NR = data2use(:,and(ext_filter_vector,all_trial_flags(:,2)==0));
+        binned_patterns_NRext = bin_patterns_overTime(ext_patterns_NR,num_trials_to_bin);
         
-        pause; close gcf
+        distances_NR_binned = 1-squareform(pdist([binned_patterns_Rsa,binned_patterns_NRext]','spearman'));
+               
+        within_sa_sims = tril(distances_R_binned(1:size(binned_patterns_Rsa,2),1:size(binned_patterns_Rsa,2)),-1);
+        within_sa_sims(within_sa_sims == 0) = [];
+        [sa_hist_vals,sa_hist_bins] = hist(within_sa_sims,20);
+        sa_hist_vals = sa_hist_vals./sum(sa_hist_vals);
         
+        ext_sims_R = distances_R_binned((size(binned_patterns_Rsa,2)+1):size(distances_R_binned,1),1:size(binned_patterns_Rsa,2));
+        [ext_hist_vals_R,ext_hist_bins_R] = hist(ext_sims_R(:),20);
+        ext_hist_vals_R = ext_hist_vals_R./sum(ext_hist_vals_R);
+        
+        ext_sims_NR = distances_NR_binned((size(binned_patterns_Rsa,2)+1):size(distances_R_binned,1), 1:size(binned_patterns_Rsa,2));
+        [ext_hist_vals_NR,ext_hist_bins_NR] = hist(ext_sims_NR(:),20);
+        ext_hist_vals_NR = ext_hist_vals_NR./sum(ext_hist_vals_NR);
+        
+
+        figure(event_i);
+        set(gcf,'Position',[100 300 800 600]);
+        
+        plot(sa_hist_bins,sa_hist_vals,'Color',[0 0.5 1],'LineWidth',1.5,'DisplayName','Within Self-Admin  Similarity');
+        mean_sim = mean(within_sa_sims); 
+        hold on; plot(mean_sim*ones(2,1),[0,max(sa_hist_vals)],'--','Color',[0 0.5 1],'LineWidth',1,'DisplayName','SA Similarity Mean');
+        
+        plot(ext_hist_bins_R,ext_hist_vals_R,'Color',[0 0.6 0.5],'LineWidth',1.5,'DisplayName','Extinction to Self-Admin Similarity: Response Trials');
+        mean_sim = mean(ext_sims_R(:));
+        hold on; plot(mean_sim*ones(2,1),[0,max(ext_hist_vals_R)],'--','Color',[0 0.6 0.5],'LineWidth',1,'DisplayName','ExtR Similarity Mean');
+        
+        plot(ext_hist_bins_NR,ext_hist_vals_NR,'Color',[0.6 0.2 0.1],'LineWidth',1.5,'DisplayName','Extinction to Self-Admin Similarity: Non-response Trials'); mean_sim = mean(ext_sims_R(:));
+        mean_sim = mean(ext_sims_NR(:));
+        hold on; plot(mean_sim*ones(2,1),[0,max(ext_hist_vals_NR)],'--','Color',[0.6 0.2 0.1],'LineWidth',1,'DisplayName','ExtNR Similarity Mean');
+        
+        xlabel('Pattern Similarity')
+        ylabel('Probability')
+        ylim([0 0.2])
+        legend('show'); 
+        set(gca,'FontSize',16)
+        title(sprintf('Pattern Similarity, Rat %d, Event: %s',rat_id,events_of_interest{event_i}))
+      
+        saveas(gcf,fullfile('/Users/conorheins/Desktop/CALCIUM_IMAGING/RM036/RM036_Displays/analysis_12122018/',...
+            sprintf('Rat%d/PatternCorr_LockedTo_%s_%dTrialBins',rat_id,events_of_interest{event_i},num_trials_to_bin)),'png');
     end
     
     %%
